@@ -171,7 +171,7 @@ func main() {
 					target.exploit_CVE_2025_30208(platform)
 				}
 			} else {
-				ERROR("[-] %s貌似不存在CVE_2025_30208漏洞？\n", target.Url)
+				ERROR("[-] %s 貌似不存在CVE_2025_30208漏洞？\n", target.Url)
 			}
 		}
 		if FileName != "" {
