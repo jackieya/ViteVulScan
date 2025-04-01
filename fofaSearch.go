@@ -18,7 +18,7 @@ var INFO = color.Bluef
 var SUCCESS = color.Greenf
 var WARNING = color.Yellowf
 var ERROR = color.Redf
-var cfgFile = "cfg/app.ini"
+var cfgFile = "app.ini"
 
 type FofaRespJson struct {
 	Error           bool       `json:"error"`
@@ -39,6 +39,7 @@ type Target struct {
 	Protocal   string
 	Url        string
 	StatusCode int
+	Platform   string
 }
 
 var wg sync.WaitGroup
@@ -64,7 +65,6 @@ func Request(url string) (*http.Response, error) {
 		ERROR("[-] 连接%s错误!\n", url)
 		return nil, err
 	}
-	SUCCESS("[+] %s存活!\n", url)
 	return htp, nil
 }
 
@@ -79,22 +79,24 @@ func (target *Target) CheckAlive() {
 		target.StatusCode = 0
 		return
 	}
+	SUCCESS("[+] %s存活!\n", target.Url)
 	target.StatusCode = htp.StatusCode
 }
 func GetFofaAssets() ([]Target, error) {
 	cfg, err := ini.Load(cfgFile)
 	if err != nil {
-		ERROR("[-] 请检查配置文件%s!退出~\n", cfgFile)
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("请检查配置文件%s!退出~", cfgFile))
 	}
 	fofaSec := cfg.Section("fofa")
 	FofaKey := fofaSec.Key("fofaKey").String()
+	if FofaKey == "" {
+		return nil, errors.New("未配置fofakey字段!")
+	}
 	FofaQuery := fofaSec.Key("fofaQuery").String()
 	qbase64 := base64.StdEncoding.EncodeToString([]byte(FofaQuery))
 	num, err := fofaSec.Key("num").Int()
 	if err != nil {
-		ERROR("[-] 请检查配置文件中num字段信息!\n")
-		return nil, err
+		return nil, errors.New("请检查配置文件中num字段信息!")
 	}
 	size := 100
 	MAXPAGE := num / 100
@@ -104,19 +106,16 @@ func GetFofaAssets() ([]Target, error) {
 		FofaUrl := fmt.Sprintf("https://fofa.info/api/v1/search/all?key=%s&qbase64=%s&page=%v&size=%v&fields=%v", FofaKey, qbase64, page, size, fields)
 		resp, err := http.Get(FofaUrl)
 		if err != nil {
-			ERROR("[-] 请检查网络问题")
-			return nil, err
+			return nil, errors.New("请检查网络问题!")
 		}
 		defer resp.Body.Close()
 		jsonStr, err := io.ReadAll(resp.Body)
 		RespJson := FofaRespJson{}
 		err = json.Unmarshal(jsonStr, &RespJson)
 		if err != nil {
-			ERROR("[-] fofa请求出错\n")
-			return nil, err
+			return nil, errors.New("fofa请求出错")
 		}
 		if RespJson.Error == true {
-			ERROR("[-] %s\n", RespJson.Errmsg)
 			return nil, errors.New(RespJson.Errmsg)
 		}
 		wg.Add(len(RespJson.Results))

