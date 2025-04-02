@@ -35,7 +35,7 @@ go版本：`go 1.20以上版本`
 然后编译项目
 >  go build -o ViteVulScan -ldflags="-s -w" -trimpath .
 
-` ./CVE_2025_3020`即可运行该脚本。
+` ./ViteVulScan`即可运行该脚本。
 
 当然你也可以直接在项目根目录下运行该项目:
 > go run . 
