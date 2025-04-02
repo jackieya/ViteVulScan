@@ -57,13 +57,13 @@ func Request(url string) (*http.Response, error) {
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		ERROR("[-] 连接%s错误!\n", url)
+		ERROR("[-] 访问%s发生错误!\n", url)
 		return nil, err
 	}
 	request.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
 	htp, err := client.Do(request)
 	if err != nil {
-		ERROR("[-] 连接%s错误!\n", url)
+		ERROR("[-] 访问%s发生错误!\n", url)
 		return nil, err
 	}
 	return htp, nil
