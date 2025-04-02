@@ -40,6 +40,7 @@ type Target struct {
 	Url        string
 	StatusCode int
 	Platform   string
+	RootPath   string
 }
 
 var wg sync.WaitGroup
