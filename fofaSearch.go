@@ -119,8 +119,13 @@ func GetFofaAssets() ([]Target, error) {
 		if RespJson.Error == true {
 			return nil, errors.New(RespJson.Errmsg)
 		}
-		wg.Add(len(RespJson.Results))
+		hostMap := map[string]struct{}{} // 用来去重
 		for _, target := range RespJson.Results {
+			if _, ok := hostMap[target[0]]; ok {
+				continue
+			}
+			hostMap[target[0]] = struct{}{}
+			wg.Add(1)
 			newTarget := Target{HOST: target[0], IP: target[1], Port: target[2], Protocal: target[3]}
 			go func(target *Target) {
 				defer wg.Done()
