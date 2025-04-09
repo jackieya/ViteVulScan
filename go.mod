@@ -1,4 +1,4 @@
-module poc
+module github.com/jackieya/ViteVulScan
 
 go 1.24.1
 

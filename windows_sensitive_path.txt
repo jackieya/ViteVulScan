@@ -1,7 +1,0 @@
-/C:\windows\win.ini
-/C:\boot.ini
-/C:\windows\system32\inetsrv\MetaBase.xml
-/C:\windows\repair\sam
-/C:\ProgramFiles\mysql\my.ini
-/C:\ProgramFiles\mysql\data\mysql\user.MYD
-/C:\windows\php.ini
