@@ -8,9 +8,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
+var assets = make(chan Target, 100)
+var wg2 sync.WaitGroup
+var lock sync.Mutex
 var (
 	CVE      string
 	NeedFofa bool
@@ -198,35 +202,49 @@ func main() {
 				if Url == "" {
 					continue // 处理空行
 				}
-				target, ok := NormalizeUrl(Url)
-				if !ok {
-					ERROR("[-] 请检查url：%s是否正确！\n", Url)
-					continue
-				}
-				vul := target.CheckAndExploit()
-				if vul {
-					successList = append(successList, target)
-				}
+				wg2.Add(1)
+				go func() {
+					defer wg2.Done()
+					target, ok := NormalizeUrl(Url)
+					if !ok {
+						ERROR("[-] 请检查url：%s是否正确！\n", Url)
+						return
+					}
+					vul := target.CheckAndExploit()
+					if vul {
+						lock.Lock()
+						successList = append(successList, target)
+						lock.Unlock()
+					}
+				}()
 			}
+			wg2.Wait()
 			if len(successList) != 0 {
 				SaveResult(successList)
 			}
 		}
 	} else {
 		// 联动fofa进行检测， 先从fofa中取出相应的目标资产，然后检测存活度、去重，最终利用相应的cve进行批量检测
-		var assets []Target
-		assets, err := GetFofaAssets()
+
+		err := GetFofaAssets()
 		if err != nil {
 			ERROR("[-] 出现了错误: %s\n", err.Error())
 			os.Exit(1)
 		}
 		var successList []Target
-		for _, asset := range assets {
-			vul := asset.CheckAndExploit()
-			if vul {
-				successList = append(successList, asset)
-			}
+		for asset := range assets {
+			wg2.Add(1)
+			go func(asset Target) {
+				defer wg2.Done()
+				vul := asset.CheckAndExploit()
+				if vul {
+					lock.Lock()
+					successList = append(successList, asset)
+					lock.Unlock()
+				}
+			}(asset)
 		}
+		wg2.Wait()
 		if len(successList) != 0 {
 			SaveResult(successList)
 		}
