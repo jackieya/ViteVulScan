@@ -21,7 +21,7 @@ func (target *Target) check_CVE_2025_31125(sep string) (platform string, isVul b
 	}
 	defer resp.Body.Close()
 	content, err := io.ReadAll(resp.Body)
-	re := regexp.MustCompile(`<script type="module" src="(.*?)/@vite/client"`)
+	re := regexp.MustCompile(`<script type="module" src="(?:https?:\/\/[^\/]+)?(.*?)/@vite/client"`)
 	matches := re.FindStringSubmatch(string(content))
 	if len(matches) >= 2 {
 		rootPath := matches[1]
