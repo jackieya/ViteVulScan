@@ -49,7 +49,7 @@ func NormalizeUrl(targetUrl string) (Target, bool) {
 					HOST:       u.Host,
 					IP:         u.Host,
 					Port:       Port,
-					Protocal:   u.Scheme,
+					Protocol:   u.Scheme,
 					Url:        httpTargetUrl,
 					StatusCode: request.StatusCode,
 				}, true
@@ -73,7 +73,7 @@ func NormalizeUrl(targetUrl string) (Target, bool) {
 			HOST:       u2.Host,
 			IP:         u2.Host,
 			Port:       Port,
-			Protocal:   u2.Scheme,
+			Protocol:   u2.Scheme,
 			Url:        httpsTargetUrl,
 			StatusCode: request2.StatusCode,
 		}, true
@@ -98,7 +98,7 @@ func NormalizeUrl(targetUrl string) (Target, bool) {
 		HOST:       u.Host,
 		IP:         u.Host,
 		Port:       Port,
-		Protocal:   u.Scheme,
+		Protocol:   u.Scheme,
 		Url:        targetUrl,
 		StatusCode: request.StatusCode,
 	}, true
@@ -116,7 +116,7 @@ func SaveResult(successList []Target) {
 	defer writer.Flush()
 	writer.Write([]string{"IP", "PORT", "URL", "Protocal", "Platform", "RootPath"})
 	for _, result := range successList {
-		writer.Write([]string{result.IP, result.Port, result.Url, result.Protocal, result.Platform, result.RootPath})
+		writer.Write([]string{result.IP, result.Port, result.Url, result.Protocol, result.Platform, result.RootPath})
 	}
 	SUCCESS("[+] 成功将结果写入到%s文件中", fileName2)
 }

@@ -36,7 +36,7 @@ type Target struct {
 	HOST       string
 	IP         string
 	Port       string
-	Protocal   string
+	Protocol   string
 	Url        string
 	StatusCode int
 	Platform   string
@@ -70,16 +70,16 @@ func Request(url string) (*http.Response, error) {
 }
 
 func (target *Target) CheckAlive() {
-	target.Url = fmt.Sprintf("%s://%s", target.Protocal, target.HOST)
+	target.Url = fmt.Sprintf("%s://%s", target.Protocol, target.HOST)
 	if target.Port == "80" || target.Port == "443" {
 		target.Url = fmt.Sprintf("%s:%s", target.Url, target.Port)
 	}
 	htp, err := Request(target.Url)
-	defer htp.Body.Close()
 	if err != nil {
 		target.StatusCode = 0
 		return
 	}
+	defer htp.Body.Close()
 	SUCCESS("[+] %s存活!\n", target.Url)
 	target.StatusCode = htp.StatusCode
 }
@@ -101,7 +101,7 @@ func GetFofaAssets() ([]Target, error) {
 	}
 	size := 100
 	MAXPAGE := num / 100
-	fields := "host,ip,port,protocal"
+	fields := "host,ip,port,protocol"
 	AliveList := []Target{}
 	for page := 1; page <= MAXPAGE; page++ {
 		FofaUrl := fmt.Sprintf("https://fofa.info/api/v1/search/all?key=%s&qbase64=%s&page=%v&size=%v&fields=%v", FofaKey, qbase64, page, size, fields)
@@ -126,7 +126,7 @@ func GetFofaAssets() ([]Target, error) {
 			}
 			hostMap[target[0]] = struct{}{}
 			wg.Add(1)
-			newTarget := Target{HOST: target[0], IP: target[1], Port: target[2], Protocal: target[3]}
+			newTarget := Target{HOST: target[0], IP: target[1], Port: target[2], Protocol: target[3]}
 			go func(target *Target) {
 				defer wg.Done()
 				target.CheckAlive()
