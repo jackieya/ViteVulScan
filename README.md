@@ -80,7 +80,7 @@ go版本：`go 1.20以上版本`
 
 ### 示例
 
-**示例 1：**联动 fofa 进行批量检测：
+__示例 1：__联动 fofa 进行批量检测：
 
 ./ViteVulScan -fofa
 
@@ -90,7 +90,7 @@ go版本：`go 1.20以上版本`
 
 ![image-20250410151756704](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410151758397.png)
 
-**示例 2：**针对存在漏洞的 url 进行深度利用：
+__示例 2：__针对存在漏洞的 url 进行深度利用：
 
 ./ViteVulScan -u example.com -e
 
