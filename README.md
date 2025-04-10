@@ -78,6 +78,33 @@ go版本：`go 1.20以上版本`
 2. 当指定-fofa和-f参数进行检测后，会自动将存在漏洞的资产保存到当前文件下，文件名格式为"当下时间戳.csv"。 
 3. 同时支持对linux和windows平台进行利用，利用的字典分别为dict目录下的linux_sensitive_path.txt和windows_sensitive_path.txt，如果有更多敏感路径，可以自己在相应的字典中进行添加。
 
+### 示例
+
+**示例 1：**联动 fofa 进行批量检测：
+
+./ViteVulScan -fofa
+
+![image-20250410145741383](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410145749802.png)
+
+扫描结束后，会在 result 目录下看到保存利用成功的 url 的csv 文件，以时间戳为名：
+
+![image-20250410151756704](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410151758397.png)
+
+**示例 2：**针对存在漏洞的 url 进行深度利用：
+
+./ViteVulScan -u example.com -e
+
+![image-20250410150341952](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410150344090.png)
+
+如果显示“利用成功”，可以查看result 目录，会有以扫描的 url 为名的目录，扫描出来的敏感文件内容都被解析成原本文件格式后保存到相应路径中，效果如下所示：
+
+![image-20250410150836985](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410150838982.png)
+
+以保存的 result/localhost:5173/etc/passwd 中内容为例，可以看到敏感信息的完整内容被保存下来，便于后续的利用（如果能读取到 /etc/shadow 或者是服务器的ssh 私钥，就可以进一步利用了）。
+
+![image-20250410151044619](https://cdn.jsdelivr.net/gh/jackieya/imgHosting/pic/20250410151045981.png)
+
+
 # 免责声明
 本工具仅用于安全研究和授权测试，请勿用于非法用途。使用本工具进行任何未经授权的测试所造成的后果由使用者自行承担。
 
